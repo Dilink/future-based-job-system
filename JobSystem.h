@@ -134,13 +134,14 @@ namespace job_system
 	{
 	private:
 		std::vector<std::unique_ptr<priv::IJob>> m_Jobs;
+		decltype(m_Jobs) m_JobsAddedDuringFrame;
 	public:
 		template <typename T>
 		void AddJob(std::function<T()> work, std::function<void(T&)> callback)
 		{
 			auto&& job = CreateJobWithResult<T>(work);
 			job->m_Callback = callback;
-			m_Jobs.push_back(std::move(job));
+			m_JobsAddedDuringFrame.push_back(std::move(job));
 		}
 
 		template <typename T>
@@ -149,7 +150,7 @@ namespace job_system
 			auto&& job = CreateJobWithResult<T>(work);
 			WaiterWithResult<T> waiter(job.get());
 			job->m_Callback = std::bind(&WaiterWithResult<T>::OnResult, &waiter, std::placeholders::_1);
-			m_Jobs.push_back(std::move(job));
+			m_JobsAddedDuringFrame.push_back(std::move(job));
 			return waiter;
 		}
 
@@ -157,35 +158,41 @@ namespace job_system
 		{
 			auto&& job = CreateJobWithoutResult(work);
 			job->m_Callback = callback;
-			m_Jobs.push_back(std::move(job));
+			m_JobsAddedDuringFrame.push_back(std::move(job));
 		}
 
 		Waiter AddJob(std::function<void()> work)
 		{
 			auto&& job = CreateJobWithoutResult(work);
-			m_Jobs.push_back(std::move(job));
-			return Waiter(m_Jobs.back().get());
+			m_JobsAddedDuringFrame.push_back(std::move(job));
+			return Waiter(m_JobsAddedDuringFrame.back().get());
 		}
 
 		void Tick()
 		{
-			for (auto itr = m_Jobs.begin(); itr != m_Jobs.end();)
+			m_Jobs.insert(m_Jobs.end(),
+				std::make_move_iterator(m_JobsAddedDuringFrame.begin()),
+				std::make_move_iterator(m_JobsAddedDuringFrame.end())
+			);
+			m_JobsAddedDuringFrame.clear();
+
+			for (auto it = m_Jobs.begin(); it != m_Jobs.end();)
 			{
-				if ((*itr)->IsFinished())
+				if ((*it)->IsFinished())
 				{
-					(*itr)->ExecuteCallback();
-					itr = m_Jobs.erase(itr);
+					(*it)->ExecuteCallback();
+					it = m_Jobs.erase(it);
 				}
 				else
 				{
-					++itr;
+					++it;
 				}
 			}
 		}
 
 		inline bool HasJobs()
 		{
-			return !m_Jobs.empty();
+			return !m_Jobs.empty() || !m_JobsAddedDuringFrame.empty();
 		}
 	private:
 		template <typename T>

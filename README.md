@@ -62,15 +62,22 @@ Waiting for job3 to finish
 (1) Start working...
 (2) Start working...
 (3) Start working...
-(2) Work done
+(1) Work done
 (3) Work done
 Waiting for job4...
 (4) Start working...
 (4) Work done
 Job4 finished, result: 42
-(2) Callback
-(1) Work done
-(1) Callback, result: 3
+(1) Callback
+(5) Start working...
+(5) Work done
+(5) Callback - pre
+(5) Callback - post
+(6) Start working...
+(6) Work done
+(6) Callback
+(2) Work done
+(2) Callback, result: 4
 
 === Rest of the application here ===
 ```
